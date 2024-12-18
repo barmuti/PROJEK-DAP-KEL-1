@@ -1,0 +1,75 @@
+# Membaca file CSV
+dap <- read.csv("C:/Users/Karyatin S/Documents/PROJECT 2025/DAP/groceries.csv", header = TRUE)
+View(dap)
+
+# Menampilkan informasi awal data
+cat("Informasi Data:\n")
+print(head(dap))
+cat("\nJumlah Kolom: ", ncol(dap), "\nJumlah Baris: ", nrow(dap), "\n")
+
+# DATA PREPROCESSING #
+# Buang kolom 'Item(s)' jika tidak diperlukan
+dap <- dap[, -1]  # Menghapus kolom pertama
+View(dap)
+
+# Hapus kolom kosong (seluruh nilainya NA)
+dap <- dap[, colSums(is.na(dap)) < nrow(dap)]
+
+# Mengubah format data ke bentuk transaksi
+# Menggabungkan semua item dalam satu baris transaksi
+basket_data <- apply(dap, 1, function(row) paste(unique(na.omit(row)), collapse = ","))
+
+# Simpan data ke file dalam format yang benar untuk transaksi (setiap transaksi di satu baris)
+writeLines(basket_data, "groceries_basket.csv")
+View(basket_data)
+
+# Membaca data dalam format transaksi (basket)
+library(arules)
+Groceries <- read.transactions("groceries_basket.csv", format = "basket", sep = ",")
+View(Groceries)
+
+# Menampilkan ringkasan data transaksi
+cat("\nRingkasan Data Transaksi:\n")
+summary(Groceries)
+
+# Visualisasi Frekuensi Item
+library(arulesViz)
+itemFrequencyPlot(Groceries, topN = 10, col = "#DEB887", main = "10 Item dengan Frekuensi Tertinggi")
+
+# Membuat aturan asosiasi menggunakan algoritma Apriori
+association_rules <- apriori(
+  Groceries,
+  parameter = list(support = 0.01, confidence = 0.25)
+)
+inspect(head(association_rules, 5))
+
+# Eksperimen dengan parameter support dan confidence yang lebih kecil
+experiment_rules <- apriori(
+  Groceries,
+  parameter = list(support = 0.005, confidence = 0.2)
+)
+inspect(head(experiment_rules, 5))
+
+# Inspeksi beberapa aturan terbaik dari eksperimen
+inspect(head(sort(experiment_rules, by = "confidence", decreasing = TRUE), 10))
+
+# Menampilkan aturan dengan confidence tertinggi
+inspect(head(sort(association_rules, by = "confidence", decreasing = TRUE), 10))
+
+# Menyaring aturan dengan lift > 1.5
+strong_rules <- subset(association_rules, lift > 1.5)
+
+# Inspeksi aturan yang difilter
+cat("\nAturan dengan Lift > 1.5:\n")
+inspect(head(sort(strong_rules, by = "lift", decreasing = TRUE), 10))
+
+# Visualisasi grouped matrix
+plot(top_rules, method = "grouped")
+
+# Visualisasi aturan dengan graph
+plot(top_rules, method = "graph", measure = "confidence", shading = "lift")
+
+# Menyimpan hasil aturan ke dalam data frame
+rule_metrics <- as.data.frame(quality(top_rules))
+cat("\nMetrik Aturan:\n")
+print(rule_metrics)
